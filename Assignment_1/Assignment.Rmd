@@ -1,0 +1,50 @@
+---
+title: "Assignment 1"
+author: "Peter"
+date: "2024-02-04"
+output: html_document
+---
+
+# Car Engine Performance over the years
+## This analysis shows the trend of performance in cars over the years
+
+
+##### (Data set taken from kaggle - https://www.kaggle.com/datasets/rkiattisak/sports-car-prices-dataset )
+```{r}
+# Importing data from csv into R
+Car_data <- read.csv("./Sport car price.csv")
+head(Car_data) 
+```
+
+
+```{r}
+# Transforming the data set values of column year from character to number
+Car_data$Horsepower <- as.numeric(Car_data$Horsepower) 
+Car_data$Price..in.USD. <- as.numeric(Car_data$Price..in.USD.)
+Car_data$Torque..lb.ft. <- as.numeric(Car_data$Torque..lb.ft.)
+```
+
+
+## Descriptive Statistics
+### 1. To find the engine capacity average throughout the years.
+### 2. To find the oldest year of the sports car in this dataset, latest year and the mid year
+```{r}
+# Printing out statistics on the data to get overview insights
+summary(Car_data[, 5]) #HP - Quantitative
+summary(Car_data[, 3]) #Year - Categorical 
+```
+# Scatter plot to visualise different types of sports cars manufactured in particular years
+
+```{r}
+plot(Car_data$Year, Car_data$Horsepower) #Scatter plot
+```
+
+#Plotting the values to find the engine capacity 
+```{r}
+boxplot(Car_data$Engine.Size..L.) # Box plot
+
+```
+
+
+
+
