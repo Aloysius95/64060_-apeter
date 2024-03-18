@@ -1,0 +1,219 @@
+---
+title: "FML Assignment 4"
+author: "Peter"
+date: "2024-03-16"
+output: html_document
+---
+
+### Summary 
+
+The cluster analysis of 21 firms based on numerical variables (1 to 9) revealed distinct clusters using K-Means, DBSCAN, and Hierarchical Clustering techniques. K-Means with k=5 was chosen as the optimal solution due to its clear separation of clusters. Interpretation of clusters highlighted differences in market capitalization, volatility, profitability, and leverage. Non-clustering variables (10 to 12) revealed patterns in revenue growth and net profit margin across clusters. Naming clusters "Fast and Furious" and "Slow and steady" reflect their distinct traits and potential directions for further research.
+
+```{r}
+# Loading necessary packages
+library(tidyverse)
+library(factoextra)
+library(fpc)
+library(dbscan)
+library(stats)
+library(ggplot2)
+library(dendextend)
+library(cluster)
+```
+```{r}
+# Loading the data set and validating
+pharma <- read.csv("./Pharmaceuticals.csv")
+pharma <- na.omit(pharma)
+head(pharma,2)
+tail(pharma,2)
+t(t(names(pharma)))
+dim(pharma)
+```
+Selecting numerical variables (1 to 9) to cluster the 21 firms.
+```{r}
+row.names(pharma) <- pharma[,1]
+cluster <- pharma[,3:11]
+```
+Scaling the data 
+```{r}
+set.seed(24)
+Scaled_pharma<-scale(cluster)
+```
+Performing Kmeans for random K values
+```{r}
+set.seed(24)
+k_pharma_2<-kmeans(Scaled_pharma,centers = 2, nstart = 15)
+k_pharma_4<-kmeans(Scaled_pharma,centers = 4, nstart = 15)
+k_pharma_8<-kmeans(Scaled_pharma,centers = 8, nstart = 15)
+plot_k_pharma_2<-fviz_cluster(k_pharma_2,data = Scaled_pharma) + ggtitle("K Means = 2") + theme_minimal()
+plot_k_pharma_4<-fviz_cluster(k_pharma_4,data = Scaled_pharma) + ggtitle("K Means = 4") + theme_minimal()
+plot_k_pharma_8<-fviz_cluster(k_pharma_8,data = Scaled_pharma) + ggtitle("K Means = 8") + theme_minimal()
+```
+Visual repersentation of K Values for 2, 4 and 8
+```{r}
+plot_k_pharma_2
+plot_k_pharma_4
+plot_k_pharma_8
+```
+Using WSS and Silhouette methods to find the best K value suitable for clustering
+```{r}
+k_sum_sq<-fviz_nbclust(Scaled_pharma,kmeans,method="wss")
+k_score<-fviz_nbclust(Scaled_pharma,kmeans,method="silhouette")
+k_sum_sq
+k_score
+```
+```{r}
+euc_dist<-dist(Scaled_pharma,metho='euclidean')
+fviz_dist(euc_dist)
+```
+According to the within-sum-of-squares method, there are 2 suggested clusters. The silhouette method suggests 5 clusters, which keeps the within-cluster variance low and maintains a clear distinction between clusters.
+
+
+Performing Kmeans for suitable k
+```{r}
+set.seed(24)
+kmeans_pharma_5<-kmeans(Scaled_pharma,centers = 5, nstart = 10)
+kmeans_pharma_5
+```
+Visual Representation of K value of 5
+```{r}
+plot_k_pharma_5<-fviz_cluster(kmeans_pharma_5,data = Scaled_pharma) + ggtitle("K Means = 5")
+plot_k_pharma_5
+```
+```{r}
+clustering_run_1<-cluster%>%
+  mutate(Cluster_no=kmeans_pharma_5$cluster)%>%
+  group_by(Cluster_no)%>%summarise_all('mean')
+clustering_run_1
+```
+Companies are grouped into following clusters:
+
+Cluster 1 – The companies are grouped as per moderate-level gains on investment.(WYE, BMY, LLY, AZN, SGP,NVS, ABT, AHM)
+
+Cluster 2 – The companies are grouped with a high level of risk and bad ROI.(ELN, MRX, WPI, AVE)
+
+Cluster 3 – The companies are grouped into which give amazing levels of ROI and which are very profitable.(PFE, GSK, MRK, JNJ)
+
+Cluster 4 - The companies are grouped with an extremely high level of risk and very bad ROI.(CHTT, IVX, BAY)
+
+cluster 5 – These companies have a P/E ratio but the gains do not justify the risk.(PHA, AGN)
+
+
+```{r}
+clustering_run_2<- pharma[,12:14] %>% mutate(Clusters=kmeans_pharma_5$cluster)
+ggplot(clustering_run_2, mapping = aes(factor(Clusters), fill =Median_Recommendation))+geom_bar(position = "dodge") + theme_minimal()
+
+ggplot(clustering_run_2, mapping = aes(factor(Clusters),fill = Location))+geom_bar(position = "dodge") + theme_minimal()
+
+ggplot(clustering_run_2, mapping = aes(factor(Clusters),fill = Exchange))+geom_bar(position = "dodge") + theme_minimal()
+```
+The variable Median Recommendation shows a clear trend among the clusters. The recommendations in the second cluster are usually between hold and moderate buy, while those in the third cluster range from moderate buy to moderate sell. There's no apparent geographic pattern concerning the location of the companies, as many of them are situated in the US. Also, while most of the companies are listed on the NYSE, there's no discernible correlation between the stock exchange listings and the clusters.
+
+Naming and grouping clusters - Based on net Market capitalization/size and Return on Assets/money:
+
+Cluster 1: Large size and Thousands
+
+Cluster 2: Extra Small size and Penny
+
+Cluster 3: Small size and Dollars
+
+Cluster 4: Medium size and Hundreds
+
+Cluster 5: Extra Large size and Millions
+
+DBSCAN CLUSTERING
+```{r}
+kNNdistplot(Scaled_pharma, k = 5)
+# Visualizing the elbow point
+abline(h = 0.05, col = 'red', lty = 2) # Starting with a small value for eps and adjusingt based on the plot
+```
+
+```{r}
+# Cluster 0: This is the cluster identified by DBSCAN, which includes firms that are close together 
+# Cluster -1: This represents outlier points or maybe noise, which are not sufficiently close to enough. 
+# USing different eps value for better clustering.
+# selecting minPts = 0.5 is a common default
+dbscan_1 <- dbscan(Scaled_pharma, eps = 0.5, minPts = 5)
+dbscan_1$cluster
+plot(dbscan_1, Scaled_pharma, main= "DBSCAN 1 Results", frame= FALSE)
+dbscan_1$cluster
+```
+```{r}
+# Cluster 0: This is the cluster identified by DBSCAN, which includes firms that are close together 
+# Cluster -1: This represents outlier points or maybe noise, which are not sufficiently close to enough. 
+# USing different eps value for better clustering.
+# If the eps value is too low then the output will be zero and if the eps value is too high then the output will be 1
+# Giving the value for eps as 2. 
+dbscan_2 <- dbscan(Scaled_pharma, eps = 2.0, minPts = 5)
+dbscan_2$cluster
+plot(dbscan_2, Scaled_pharma, main= "DBSCAN 2 Results", frame= FALSE)
+```
+```{r}
+#If giving eps value high the outcome will be 1.
+dbscan_3 <- dbscan(Scaled_pharma, eps = 5.0, minPts = 5)
+dbscan_3$cluster
+plot(dbscan_3, Scaled_pharma, main= "DBSCAN 3 Results", frame= FALSE)
+```
+HIERARCHICAL CLUSTERING
+```{r}
+# Hierarchical clustering by using Ward's method
+hcluster_result <- hclust(dist(Scaled_pharma), method = "ward.D2")
+# Cut the dendrogram to create a specified number of clusters.
+cluster <- cutree(hcluster_result, k = 3)
+cluster
+```
+```{r}
+dendrogram <- as.dendrogram(hcluster_result)
+ggplotdend <- as.ggdend(dendrogram)
+ggplot(ggplotdend, theme = theme_minimal()) +
+  labs(title = "Hierarchical Clustering Dendrogram", x = "", y = "Height") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+
+### Findings
+
+DBSCAN Clustering: 
+
+The algorithm has identified two clusters, denoted as 0 and 1, and has labeled several points as -1, meaning they are noise. With a silhouette score of roughly 0.052, DBSCAN performs poorly. This implies that there is not much density or separation between the clusters that DBSCAN defined.
+
+Hierarchical Clustering: 
+
+Since DBSCAN was unable to produce enough clusters, I arbitrarily selected three clusters for hierarchical clustering. Although this is better than the DBSCAN result, the silhouette score for hierarchical clustering is roughly 0.273, indicating moderate cluster overlap or cluster structure. 
+Since the DBSCAN produced one cluster when noise was ignored, I used two clusters for hierarchical clustering. The silhouette score produced by hierarchical clustering with two clusters seems more reasonable.
+
+For these clustering techniques, there is no right or wrong response. I utilized the dataset to apply the K-Means, DBSCAN, and Hierarchical clustering techniques, and I found that each clustering technique has a unique significance and it's always best to go through all methods to find the optimal clusters.
+For splitting techniques, K-Means is a good place to start, particularly if you have a solid idea of how many clusters there are.
+When clusters are not always globular and there is noise in the data, DBSCAN works best.
+When a visual representation of the clusters is helpful and exploratory data analysis is required, Hierarchical Clustering does well.
+In summary, even though every algorithm has its own benefits, the dataset type should determine which algorithm is used.
+
+Finalizing on clustering
+
+As per the analyses the k=5 cluster had a better graph and a better understanding of clusters after observing all the clustering techniques. For this dataset, As per the analyses k-means clustering is a far superior clustering technique.
+
+Analyzing the values of cluster and k-means: 
+
+The interpretation of the clusters, considering both the clustering and non-clustering variables, is as follows:
+
+Cluster Characteristics Based on Clustering Variables:
+
+Cluster 0 has a lower average market capitalization and higher average beta (indicating potentially higher volatility) than Cluster 1. The PE Ratio is also higher on average, while the ROE and ROA are lower than those for Cluster 1. This cluster also has a higher average leverage and revenue growth but a lower net profit margin.
+Cluster 1 has a significantly higher average market capitalization and lower beta (less volatility). The PE Ratio is lower, suggesting a potentially better price-to-earnings value. It has higher ROE and ROA, indicating generally more profitable and efficient operations. This cluster has lower leverage, lower revenue growth, and a higher net profit margin compared to Cluster 0.
+
+Patterns concerning Non-Clustering Numerical Variables:
+
+Revenue Growth (Rev_Growth): 
+
+Cluster 0 has a higher mean revenue growth, but the most common (mode) value for both clusters is negative, which may indicate that the most common trend among companies in both clusters is a decline in revenue growth.
+Net Profit Margin: Cluster 1 outperforms Cluster 0 with a significantly higher average net profit margin. The mode of the net profit margin is also higher for Cluster 1.
+For the categorical variables, the mode was calculated. However, due to the limitations in this environment, the mode for non-numeric data is not displayed here. Typically, you would analyze the most common Median Recommendation, Location, and Exchange for each cluster to discern any patterns or trends.
+
+These findings could lead to the naming of clusters based on the traits that define them, like: 
+
+Cluster 0 = Fast and Furious clusters: These businesses may be in a growth phase but are also riskier because of their higher revenue growth and leverage. 
+
+Cluster 1: Slow and steady clusters are distinguished by substantial market capitalizations, steady operations with reduced beta, and increased profitability. 
+To represent the traits of the companies more accurately within each cluster, these illustrative names would benefit from domain expertise. The non-clustering variables' patterns in the clusters point to possible directions for future research, such as the reasons behind some high-leverage, high-growth companies' declining revenue growth modes.
+
+
